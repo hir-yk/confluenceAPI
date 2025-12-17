@@ -1,0 +1,9 @@
+# 環境設定ファイルを無視
+.env
+
+# Pythonのキャッシュファイルを無視
+__pycache__/
+*.py[cod]
+
+# ダウンロードしたファイルを無視
+confluence_downloads/
