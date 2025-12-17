@@ -63,7 +63,7 @@ def download_page(confluence, page_id, page_title, p_status='current'):
         print(f"詳細なエラー内容: {e}")
 
 # --- メイン処理 ---
-confluence = Confluence(url=url, username=username, password=api_token, cloud=True)
+confluence = Confluence(url=url, username=username, password=auth_token, cloud=True)
 
 try:
     print(f"スペース [{space_key}] のページを取得中...")
