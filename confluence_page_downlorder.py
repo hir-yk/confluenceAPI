@@ -1,25 +1,29 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import sys
-from atlassian import Confluence
 import re
 import html
 import os
+from atlassian import Confluence
+from dotenv import load_dotenv
 
-# --- 設定情報 ---
-url = 'https://suzukiglobalit.atlassian.net/'
-username = 'hokamoto@hhq.suzuki.co.jp'
+# --- 設定情報の読み込み ---
+load_dotenv()  # .env ファイルから環境変数をロード
+
+url = os.getenv("CONFLUENCE_URL")
+username = os.getenv("CONFLUENCE_USERNAME")
 auth_token = os.getenv("ATLASSIAN_TOKEN")
 base_output_dir = "confluence_downloads"
 
+# 設定が不足している場合のチェック
+if not all([url, username, auth_token]):
+    print("エラー: 環境変数 (CONFLUENCE_URL, CONFLUENCE_USERNAME, ATLASSIAN_TOKEN) が設定されていません。")
+    print(".env ファイルを確認してください。")
+    sys.exit(1)
+
 # --- 関数の定義 ---
 def clean_filename(filename):
-    """ファイル名やディレクトリ名に使えない文字を置換する"""
     return re.sub(r'[\\/:*?"<>|]', '_', filename)
 
 def download_page(confluence, page_id, page_title, space_name, p_status='current'):
-    """指定されたスペース名のフォルダ内にページを保存する"""
     try:
         if not page_title:
             page_title = f"Untitled_{page_id}"
@@ -53,11 +57,8 @@ def download_page(confluence, page_id, page_title, space_name, p_status='current
 
 def main():
     confluence = Confluence(url=url, username=username, password=auth_token, cloud=True)
-    
-    # 実行時のスクリプト名を取得（例: script.py）
     script_name = os.path.basename(sys.argv[0])
 
-    # 1. 引数チェック
     if len(sys.argv) < 2:
         print(f"使用法:")
         print(f"  python {script_name} --list                 # 全てのスペースを表示")
@@ -66,12 +67,14 @@ def main():
 
     input_arg = sys.argv[1]
 
-    # 2. 全スペース情報の取得
     print("スペース情報を取得中...")
-    spaces_data = confluence.get_all_spaces(start=0, limit=500)
-    results = spaces_data.get('results', [])
+    try:
+        spaces_data = confluence.get_all_spaces(start=0, limit=500)
+        results = spaces_data.get('results', [])
+    except Exception as e:
+        print(f"Confluence への接続に失敗しました。URLやトークンを確認してください。\nエラー: {e}")
+        return
 
-    # --list オプションの処理
     if input_arg == "--list":
         print(f"\n--- 全スペース一覧 ({len(results)}件) ---")
         print(f"{'[No]':<5} {'Space Name':<40} | {'Space Key':<20}")
@@ -80,7 +83,6 @@ def main():
             print(f"[{idx:3}] {s['name'][:38]:<40} | {s['key']:<20}")
         return
 
-    # 3. スペースの特定
     target_space_key = None
     target_space_name = None
 
@@ -91,7 +93,6 @@ def main():
         target_space_name = key_match['name']
     else:
         matched_spaces = [s for s in results if input_arg.lower() in s['name'].lower()]
-        
         if not matched_spaces:
             print(f"エラー: '{input_arg}' に一致するスペースが見つかりませんでした。")
             return
@@ -109,8 +110,7 @@ def main():
             print("無効な入力です。")
             return
 
-    # 4. ページ一覧取得とダウンロード
-    print(f"\nスペース [{target_space_name}] (Key: {target_space_key}) のページリストを取得します...")
+    print(f"\nスペース [{target_space_name}] のページリストを取得します...")
     try:
         current_pages = confluence.get_all_pages_from_space(target_space_key, start=0, limit=100, status='current')
         draft_pages = confluence.get_all_pages_from_space(target_space_key, start=0, limit=100, status='draft')
